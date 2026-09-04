@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GKEDIT AI Workspace</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    body { background: #0f172a; color: #f8fafc; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 1rem; }
+    .app-card { background: #1e293b; width: 100%; max-width: 460px; border-radius: 16px; border: 1px solid #334155; padding: 1.5rem; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+    h1 { font-size: 1.5rem; font-weight: 700; color: #38bdf8; margin-bottom: 0.5rem; }
+    p.subtitle { color: #94a3b8; font-size: 0.875rem; margin-bottom: 1.25rem; }
+    .input-group { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    input[type="text"] { flex: 1; background: #0f172a; border: 1px solid #475569; border-radius: 8px; padding: 0.75rem 1rem; color: #f8fafc; outline: none; font-size: 0.95rem; }
+    input[type="text"]:focus { border-color: #38bdf8; }
+    button.add-btn { background: #0284c7; color: white; border: none; border-radius: 8px; padding: 0 1.25rem; font-weight: 600; cursor: pointer; transition: 0.2s; }
+    button.add-btn:hover { background: #0369a1; }
+    .filters { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    .filter-btn { background: transparent; border: 1px solid #475569; color: #94a3b8; padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.8rem; cursor: pointer; }
+    .filter-btn.active { background: #334155; color: #38bdf8; border-color: #38bdf8; }
+    .task-list { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; max-height: 300px; overflow-y: auto; }
+    .task-item { display: flex; align-items: center; justify-content: space-between; background: #0f172a; padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid #334155; }
+    .task-item.completed span { text-decoration: line-through; color: #64748b; }
+    .task-content { display: flex; align-items: center; gap: 0.75rem; }
+    input[type="checkbox"] { accent-color: #38bdf8; width: 1.1rem; height: 1.1rem; cursor: pointer; }
+    .delete-btn { background: transparent; border: none; color: #ef4444; font-size: 1.1rem; cursor: pointer; }
+    .footer { display: flex; justify-content: space-between; align-items: center; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid #334155; font-size: 0.85rem; color: #94a3b8; }
+    .clear-btn { background: transparent; border: none; color: #f87171; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="app-card">
+    <h1>⚡ GKEDIT Task Hub</h1>
+    <p class="subtitle">Client-side app saved to browser LocalStorage.</p>
+
+    <div class="input-group">
+      <input type="text" id="taskInput" placeholder="Add a new task..." />
+      <button class="add-btn" id="addBtn">Add</button>
+    </div>
+
+    <div class="filters">
+      <button class="filter-btn active" data-filter="all">All</button>
+      <button class="filter-btn" data-filter="active">Active</button>
+      <button class="filter-btn" data-filter="completed">Completed</button>
+    </div>
+
+    <ul class="task-list" id="taskList"></ul>
+
+    <div class="footer">
+      <span id="itemsCount">0 tasks</span>
+      <button class="clear-btn" id="clearBtn">Clear Completed</button>
+    </div>
+  </div>
+
+  <script>
+    let tasks = JSON.parse(localStorage.getItem("gk_tasks") || "[]");
+    let currentFilter = "all";
+
+    const input = document.getElementById("taskInput");
+    const addBtn = document.getElementById("addBtn");
+    const list = document.getElementById("taskList");
+    const count = document.getElementById("itemsCount");
+    const clearBtn = document.getElementById("clearBtn");
+    const filterBtns = document.querySelectorAll(".filter-btn");
+
+    function saveAndRender() {
+      localStorage.setItem("gk_tasks", JSON.stringify(tasks));
+      render();
+    }
+
+    function render() {
+      list.innerHTML = "";
+      const filtered = tasks.filter(t => 
+        currentFilter === "all" ? true : currentFilter === "active" ? !t.done : t.done
+      );
+
+      filtered.forEach((task, index) => {
+        const li = document.createElement("li");
+        li.className = `task-item ${task.done ? "completed" : ""}`;
+        li.innerHTML = `
+          <div class="task-content">
+            <input type="checkbox" ${task.done ? "checked" : ""} onchange="toggleTask(${task.id})" />
+            <span>${task.text}</span>
+          </div>
+          <button class="delete-btn" onclick="deleteTask(${task.id})">&times;</button>
+        `;
+        list.appendChild(li);
+      });
+
+      const activeCount = tasks.filter(t => !t.done).length;
+      count.textContent = `${activeCount} task${activeCount === 1 ? "" : "s"} left`;
+    }
+
+    function addTask() {
+      const val = input.value.trim();
+      if (!val) return;
+      tasks.push({ id: Date.now(), text: val, done: false });
+      input.value = "";
+      saveAndRender();
+    }
+
+    window.toggleTask = function(id) {
+      tasks = tasks.map(t => t.id === id ? { ...t, done: !t.done } : t);
+      saveAndRender();
+    };
+
+    window.deleteTask = function(id) {
+      tasks = tasks.filter(t => t.id !== id);
+      saveAndRender();
+    };
+
+    addBtn.addEventListener("click", addTask);
+    input.addEventListener("keypress", (e) => e.key === "Enter" && addTask());
+
+    clearBtn.addEventListener("click", () => {
+      tasks = tasks.filter(t => !t.done);
+      saveAndRender();
+    });
+
+    filterBtns.forEach(btn => {
+      btn.addEventListener("click", () => {
+        filterBtns.forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        currentFilter = btn.dataset.filter;
+        render();
+      });
+    });
+
+    render();
+  </script>
+</body>
+</html>
